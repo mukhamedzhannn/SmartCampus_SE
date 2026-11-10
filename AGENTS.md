@@ -6,7 +6,8 @@ Project constraints and rules for refactoring the Smart Campus Room Availability
 
 - Single-page React + Tailwind prototype built with Vite.
 - No authentication, backend, database, analytics, or external APIs.
-- Fictional sample data lives in `src/data.ts`.
+- Fictional sample data lives in `src/data.ts` — a catalog of 4 rooms (Alpha Lab, Beta Hall, Gamma Pod, Delta Studio) with mock bookings.
+- Room filtering (F1 capacity, F2 equipment, F3 blocked-room exclusion, F4 empty state, F5 dynamic switching) lives in `src/lib/roomFilters.ts` as pure functions.
 
 ## Acceptance criteria (must be preserved)
 
@@ -40,8 +41,8 @@ Project constraints and rules for refactoring the Smart Campus Room Availability
 - Run `npx tsc --noEmit -p tsconfig.app.json` to type-check.
 - If the UI changed, re-read the edited components to confirm the rendered behavior still matches AC5 and AC6.
 
-## Known open issues
+## Resolved issues
 
-- Clearing a time input produces an invalid time that the rule function does not reject, so it can show `Available`. Fixing this must keep AC1 intact and be done as its own change.
-- The decision badge can show a result for an earlier interval after the user edits the room or times. The decision should be derived from the current inputs.
-- `Timeline.tsx` reads fixture bookings directly instead of receiving them as props.
+- Cleared time inputs (NaN) are now rejected by `checkAvailability` as invalid intervals, preserving AC1.
+- The decision badge is derived from current inputs via `useMemo`, not stored state — no stale results after editing room or times.
+- `Timeline.tsx` receives bookings as props instead of importing fixture data directly.
