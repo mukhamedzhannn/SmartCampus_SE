@@ -18,20 +18,20 @@ export function checkAvailability(
 
   // AC1: 0 <= start < end <= 1440 and start after current mock time
   if (
-    Number.isNaN(start) ||
-    Number.isNaN(end) ||
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
     start < 0 ||
     end > DAY_END ||
     start >= end
   ) {
     reasons.push('Interval is invalid — must have start before end within 00:00–24:00.');
   }
-  if (!Number.isNaN(start) && start <= nowMin) {
+  if (Number.isFinite(start) && start <= nowMin) {
     reasons.push(`Start time must be after current time (${minutesToTime(nowMin)}).`);
   }
 
   // AC2: reject bookings strictly longer than 120 minutes
-  if (!Number.isNaN(start) && !Number.isNaN(end) && end - start > 120) {
+  if (Number.isFinite(start) && Number.isFinite(end) && end - start > 120) {
     reasons.push('Booking exceeds the 120-minute maximum duration.');
   }
 
@@ -41,7 +41,7 @@ export function checkAvailability(
   }
 
   // AC4: reject overlap with existing bookings (touch points allowed)
-  if (!Number.isNaN(start) && !Number.isNaN(end)) {
+  if (Number.isFinite(start) && Number.isFinite(end)) {
     const roomBookings = bookings.filter((b) => b.roomId === roomId);
     const overlapping = roomBookings.filter(
       (b) => start < b.end && end > b.start,

@@ -36,6 +36,17 @@ describe('AC1: interval must be valid and after the mock current time (09:30)', 
     assert.equal(result.decision, 'unavailable');
     assert.ok(result.reasons.some((r) => r.includes('Interval is invalid')));
   });
+
+  it('rejects Infinity as a boundary value', () => {
+    assert.equal(check(ROOM_D, Infinity, 720).decision, 'unavailable');
+    assert.equal(check(ROOM_D, 600, Infinity).decision, 'unavailable');
+    assert.equal(check(ROOM_D, -Infinity, 720).decision, 'unavailable');
+  });
+
+  it('rejects undefined time inputs', () => {
+    assert.equal(check(ROOM_D, undefined as unknown as number, 720).decision, 'unavailable');
+    assert.equal(check(ROOM_D, 600, undefined as unknown as number).decision, 'unavailable');
+  });
 });
 
 describe('AC2: bookings longer than 120 minutes are rejected', () => {
