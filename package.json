@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --import ./tests/register-aliases.mjs --test tests/availability.test.ts",
+    "test": "node --import ./tests/register-aliases.mjs --test tests/availability.test.ts tests/explanation.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {

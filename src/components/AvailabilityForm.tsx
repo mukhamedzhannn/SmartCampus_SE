@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
-import { Clock, AlertTriangle, RotateCcw } from 'lucide-react';
-import type { Room, Booking, CheckResult } from '../types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Clock, AlertTriangle, RotateCcw, Sparkles, Loader2, Info } from 'lucide-react';
+import type { Room, Booking, CheckResult, ExplanationResponse } from '../types';
 import { timeToMinutes, minutesToTime } from '@/lib/time';
 import { MOCK_NOW_MIN } from '../data';
+import { getExplanation } from '@/lib/explanation';
 import DecisionBadge from './DecisionBadge';
 
 export default function AvailabilityForm({
@@ -37,6 +38,72 @@ export default function AvailabilityForm({
   const durationValid =
     !Number.isNaN(startMin) && !Number.isNaN(endMin) && endMin > startMin;
   const duration = durationValid ? endMin - startMin : 0;
+
+  // Optional explanation feature — never affects the deterministic decision.
+  const [explainEnabled, setExplainEnabled] = useState(false);
+  const [explanation, setExplanation] = useState<ExplanationResponse | null>(null);
+  const [explainLoading, setExplainLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Invalidate stale explanation whenever the authoritative decision changes.
+  useEffect(() => {
+    setExplanation(null);
+  }, [result.decision, selectedRoomId, startMin, endMin]);
+
+  const handleExplain = async () => {
+    if (!result.decision) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setExplainLoading(true);
+    setExplanation(null);
+    try {
+      const room = rooms.find((r) => r.id === selectedRoomId);
+      const res = await getExplanation(
+        {
+          roomId: selectedRoomId,
+          roomName: room?.name ?? selectedRoomId,
+          start: startMin,
+          end: endMin,
+          result,
+        },
+        { signal: controller.signal, delayMs: 300 },
+      );
+      if (!controller.signal.aborted) {
+        setExplanation(res);
+      }
+    } catch {
+      if (!controller.signal.aborted) {
+        setExplanation({
+          ok: false,
+          source: 'fallback',
+          summary: 'The explanation request failed unexpectedly.',
+          details: ['The availability decision shown above is still authoritative.'],
+        });
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setExplainLoading(false);
+      }
+    }
+  };
+
+  const handleToggleExplain = (enabled: boolean) => {
+    setExplainEnabled(enabled);
+    if (!enabled) {
+      abortRef.current?.abort();
+      setExplainLoading(false);
+      setExplanation(null);
+    }
+  };
+
+  // Auto-fetch when enabling, if there is already a decision to describe.
+  useEffect(() => {
+    if (explainEnabled && result.decision && !explanation && !explainLoading) {
+      handleExplain();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [explainEnabled]);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -126,6 +193,69 @@ export default function AvailabilityForm({
             <p className="mt-3 text-xs text-emerald-700">
               All checks passed — this room is available for the selected interval.
             </p>
+          )}
+        </div>
+      )}
+
+      {/* Optional explanation — opt-in, non-authoritative. */}
+      {result.decision && (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={explainEnabled}
+              onChange={(e) => handleToggleExplain(e.target.checked)}
+              className="h-4 w-4 accent-blue-600"
+            />
+            <Sparkles className="h-4 w-4 text-blue-500" />
+            Explain this decision
+          </label>
+
+          {explainEnabled && (
+            <div className="mt-3">
+              {explainLoading && (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Generating explanation…
+                </div>
+              )}
+
+              {!explainLoading && explanation && (
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <div className="flex items-start gap-2">
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-slate-700">
+                        {explanation.summary}
+                      </p>
+                      {explanation.details.length > 0 && (
+                        <ul className="space-y-1">
+                          {explanation.details.map((d, i) => (
+                            <li key={i} className="text-xs text-slate-500">
+                              {d}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="pt-1 text-[10px] text-slate-400">
+                        Explanation is informational only — the badge above is the
+                        authoritative result ({explanation.source}).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!explainLoading && !explanation && (
+                <button
+                  type="button"
+                  onClick={handleExplain}
+                  className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
+                >
+                  Get explanation
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

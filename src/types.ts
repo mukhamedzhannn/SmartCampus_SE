@@ -23,3 +23,18 @@ export interface CheckResult {
   decision: Decision;
   reasons: string[];
 }
+
+export interface ExplanationRequest {
+  roomId: string;
+  roomName: string;
+  start: number;
+  end: number;
+  result: CheckResult;
+}
+
+export interface ExplanationResponse {
+  ok: boolean;
+  source: 'mock' | 'fallback';
+  summary: string;
+  details: string[];
+}

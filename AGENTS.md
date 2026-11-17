@@ -46,3 +46,12 @@ Project constraints and rules for refactoring the Smart Campus Room Availability
 - Cleared time inputs (NaN) are now rejected by `checkAvailability` as invalid intervals, preserving AC1.
 - The decision badge is derived from current inputs via `useMemo`, not stored state — no stale results after editing room or times.
 - `Timeline.tsx` receives bookings as props instead of importing fixture data directly.
+
+## Optional explanation feature
+
+- An **optional, non-authoritative** explanation layer was added behind `src/lib/explanation.ts`.
+- `checkAvailability` in `src/lib/availability.ts` remains the single source of truth for booking rules (AC1–AC5). The explanation adapter only *describes* a `CheckResult` it is handed — it never re-evaluates rules and cannot change the decision.
+- The feature is **opt-in** via a checkbox in `AvailabilityForm.tsx`. It adds no login, database, real personal data, or client-side API secrets.
+- Input validation: `getExplanation` validates the request shape (roomId, roomName, finite start/end, valid decision, reasons array) and returns a `fallback` response for anything invalid — it never throws.
+- Output validation: callers receive a well-typed `ExplanationResponse`; the UI treats both `ok` and `fallback` as renderable and never lets an undefined/malformed value reach the screen.
+- Graceful failure: async errors and `AbortSignal` cancellation degrade to a fallback summary; stale requests are aborted when the decision changes. The badge above stays authoritative regardless of adapter state.
