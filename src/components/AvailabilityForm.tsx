@@ -77,6 +77,7 @@ export default function AvailabilityForm({
         setExplanation({
           ok: false,
           source: 'fallback',
+          reasonCode: 'unknown',
           summary: 'The explanation request failed unexpectedly.',
           details: ['The availability decision shown above is still authoritative.'],
         });

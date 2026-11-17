@@ -1,10 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { getExplanation } from '../src/lib/explanation.ts';
+import { getExplanation, SYSTEM_INSTRUCTION } from '../src/lib/explanation.ts';
 import { checkAvailability } from '../src/lib/availability.ts';
 import { rooms, bookings, MOCK_NOW_MIN } from '../src/data.ts';
 import type { ExplanationRequest } from '../src/types.ts';
 
+const ROOM_A = 'r-a';
+const ROOM_C = 'r-c';
 const ROOM_D = 'r-d';
 
 function req(roomId: string, start: number, end: number): ExplanationRequest {
@@ -14,10 +16,11 @@ function req(roomId: string, start: number, end: number): ExplanationRequest {
 }
 
 describe('Explanation adapter: available decision', () => {
-  it('describes an available room with passing-rule details', async () => {
+  it('describes an available room with passing-rule details and reasonCode', async () => {
     const res = await getExplanation(req(ROOM_D, 780, 900), { delayMs: 0 });
     assert.equal(res.ok, true);
     assert.equal(res.source, 'mock');
+    assert.equal(res.reasonCode, 'available');
     assert.ok(res.summary.includes('Delta Studio'));
     assert.ok(res.summary.includes('available'));
     assert.ok(res.details.length >= 1);
@@ -26,12 +29,36 @@ describe('Explanation adapter: available decision', () => {
 });
 
 describe('Explanation adapter: unavailable decision', () => {
-  it('lists each reason flagged by the deterministic checker', async () => {
-    // 13:00-15:01 on Delta Studio: 121 minutes -> exceeds max duration.
+  it('lists each reason flagged by the deterministic checker (too_long)', async () => {
     const res = await getExplanation(req(ROOM_D, 780, 901), { delayMs: 0 });
     assert.equal(res.ok, true);
+    assert.equal(res.reasonCode, 'too_long');
     assert.ok(res.summary.includes('unavailable'));
     assert.ok(res.details.some((d) => d.includes('120-minute')));
+  });
+
+  it('maps overlap to reasonCode=overlap', async () => {
+    const res = await getExplanation(req(ROOM_A, 630, 690), { delayMs: 0 });
+    assert.equal(res.ok, true);
+    assert.equal(res.reasonCode, 'overlap');
+  });
+
+  it('maps blocked room to reasonCode=blocked', async () => {
+    const res = await getExplanation(req(ROOM_C, 780, 840), { delayMs: 0 });
+    assert.equal(res.ok, true);
+    assert.equal(res.reasonCode, 'blocked');
+  });
+
+  it('maps past-start to reasonCode=past_start', async () => {
+    const res = await getExplanation(req(ROOM_D, 480, 540), { delayMs: 0 });
+    assert.equal(res.ok, true);
+    assert.equal(res.reasonCode, 'past_start');
+  });
+
+  it('maps invalid interval to reasonCode=invalid_interval', async () => {
+    const res = await getExplanation(req(ROOM_D, 780, 720), { delayMs: 0 });
+    assert.equal(res.ok, true);
+    assert.equal(res.reasonCode, 'invalid_interval');
   });
 
   it('reports unavailable with a clear message when no reasons are listed', async () => {
@@ -46,12 +73,13 @@ describe('Explanation adapter: unavailable decision', () => {
       { delayMs: 0 },
     );
     assert.equal(res.ok, true);
+    assert.equal(res.reasonCode, 'unknown');
     assert.ok(res.details.some((d) => d.includes('without listing a specific reason')));
   });
 });
 
 describe('Explanation adapter: null decision', () => {
-  it('guides the user to pick a room and times', async () => {
+  it('guides the user to pick a room and times with reasonCode=no_decision', async () => {
     const res = await getExplanation(
       {
         roomId: ROOM_D,
@@ -63,7 +91,45 @@ describe('Explanation adapter: null decision', () => {
       { delayMs: 0 },
     );
     assert.equal(res.ok, true);
+    assert.equal(res.reasonCode, 'no_decision');
     assert.ok(res.summary.includes('No decision'));
+  });
+});
+
+describe('Explanation adapter: system instruction', () => {
+  it('restricts the model to provided facts, forbids hallucination, caps two sentences', () => {
+    assert.ok(SYSTEM_INSTRUCTION.includes('only the facts provided'));
+    assert.ok(SYSTEM_INSTRUCTION.toLowerCase().includes('never invent'));
+    assert.ok(SYSTEM_INSTRUCTION.includes('at most two sentences'));
+  });
+
+  it('states the deterministic checker is authoritative', () => {
+    assert.ok(SYSTEM_INSTRUCTION.toLowerCase().includes('authoritative'));
+  });
+});
+
+describe('Explanation adapter: output validation', () => {
+  it('summary is at most two sentences', async () => {
+    const res = await getExplanation(req(ROOM_D, 780, 900), { delayMs: 0 });
+    const sentences = res.summary.split(/(?<=[.!?])\s+/).filter(Boolean);
+    assert.ok(sentences.length <= 2);
+  });
+
+  it('summary mentions the room label (a provided fact)', async () => {
+    const res = await getExplanation(req(ROOM_D, 780, 900), { delayMs: 0 });
+    assert.ok(res.summary.includes('Delta Studio'));
+  });
+
+  it('details is an array of strings', async () => {
+    const res = await getExplanation(req(ROOM_D, 780, 900), { delayMs: 0 });
+    assert.ok(Array.isArray(res.details));
+    assert.ok(res.details.every((d) => typeof d === 'string'));
+  });
+
+  it('reasonCode is a known value on success', async () => {
+    const res = await getExplanation(req(ROOM_D, 780, 900), { delayMs: 0 });
+    const valid = ['available', 'invalid_interval', 'past_start', 'too_long', 'blocked', 'overlap', 'no_decision', 'unknown'];
+    assert.ok(valid.includes(res.reasonCode));
   });
 });
 
@@ -122,7 +188,6 @@ describe('Explanation adapter: non-authoritative', () => {
     const r = req(ROOM_D, 780, 901); // unavailable (duration)
     const res = await getExplanation(r, { delayMs: 0 });
     assert.equal(res.ok, true);
-    // The explanation must reflect the same decision, not override it.
     assert.ok(res.summary.includes('unavailable'));
     assert.equal(r.result.decision, 'unavailable');
   });

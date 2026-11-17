@@ -24,6 +24,16 @@ export interface CheckResult {
   reasons: string[];
 }
 
+export type ReasonCode =
+  | 'available'
+  | 'invalid_interval'
+  | 'past_start'
+  | 'too_long'
+  | 'blocked'
+  | 'overlap'
+  | 'no_decision'
+  | 'unknown';
+
 export interface ExplanationRequest {
   roomId: string;
   roomName: string;
@@ -35,6 +45,7 @@ export interface ExplanationRequest {
 export interface ExplanationResponse {
   ok: boolean;
   source: 'mock' | 'fallback';
+  reasonCode: ReasonCode;
   summary: string;
   details: string[];
 }
