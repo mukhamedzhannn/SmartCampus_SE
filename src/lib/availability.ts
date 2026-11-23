@@ -1,4 +1,4 @@
-import type { Room, Booking, CheckResult } from '@/types';
+import type { Room, Booking, CheckResult, ReasonKey } from '@/types';
 import { DAY_END, minutesToTime } from '@/lib/time';
 
 /**
@@ -14,6 +14,7 @@ export function checkAvailability(
   nowMin: number,
 ): CheckResult {
   const reasons: string[] = [];
+  const reasonKeys: ReasonKey[] = [];
   const room = rooms.find((r) => r.id === roomId);
 
   // AC1: 0 <= start < end <= 1440 and start after current mock time
@@ -25,19 +26,23 @@ export function checkAvailability(
     start >= end
   ) {
     reasons.push('Interval is invalid — must have start before end within 00:00–24:00.');
+    reasonKeys.push('invalid_interval');
   }
   if (Number.isFinite(start) && start <= nowMin) {
     reasons.push(`Start time must be after current time (${minutesToTime(nowMin)}).`);
+    reasonKeys.push('past_start');
   }
 
   // AC2: reject bookings strictly longer than 120 minutes
   if (Number.isFinite(start) && Number.isFinite(end) && end - start > 120) {
     reasons.push('Booking exceeds the 120-minute maximum duration.');
+    reasonKeys.push('too_long');
   }
 
   // AC3: reject if room status is 'Blocked'
   if (room?.status === 'Blocked') {
     reasons.push(`${room.name} is currently marked as Blocked and cannot be booked.`);
+    reasonKeys.push('blocked');
   }
 
   // AC4: reject overlap with existing bookings (touch points allowed)
@@ -54,9 +59,10 @@ export function checkAvailability(
         )
         .join(', ');
       reasons.push(`Overlaps existing booking(s): ${detail}.`);
+      reasonKeys.push('overlap');
     }
   }
 
   const available = reasons.length === 0;
-  return { decision: available ? 'available' : 'unavailable', reasons };
+  return { decision: available ? 'available' : 'unavailable', reasons, reasonKeys };
 }

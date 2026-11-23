@@ -46,16 +46,16 @@ function isValidRequest(req: ExplanationRequest): boolean {
 }
 
 function deriveReasonCode(req: ExplanationRequest): ReasonCode {
-  const { result, start, end } = req;
+  const { result } = req;
   if (result.decision === null) return 'no_decision';
   if (result.decision === 'available') return 'available';
-  const reasons = result.reasons;
-  if (reasons.some((r) => r.includes('Interval is invalid'))) return 'invalid_interval';
-  if (reasons.some((r) => r.includes('after current time'))) return 'past_start';
-  if (reasons.some((r) => r.includes('120-minute'))) return 'too_long';
-  if (reasons.some((r) => r.includes('Blocked'))) return 'blocked';
-  if (reasons.some((r) => r.includes('Overlaps'))) return 'overlap';
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return 'invalid_interval';
+  const keys = result.reasonKeys ?? [];
+  if (keys.includes('invalid_interval')) return 'invalid_interval';
+  if (keys.includes('past_start')) return 'past_start';
+  if (keys.includes('too_long')) return 'too_long';
+  if (keys.includes('blocked')) return 'blocked';
+  if (keys.includes('overlap')) return 'overlap';
+  if (!Number.isFinite(req.start) || !Number.isFinite(req.end)) return 'invalid_interval';
   return 'unknown';
 }
 
@@ -161,7 +161,7 @@ function fallback(
   message: string,
 ): ExplanationResponse {
   let reasonCode: ReasonCode;
-  if (req && typeof req === 'object' && req.result && typeof req.result === 'object') {
+  if (req && typeof req === 'object' && req.result && typeof req.result === 'object' && Array.isArray(req.result.reasons)) {
     reasonCode = deriveReasonCode(req);
   } else {
     reasonCode = 'unknown';

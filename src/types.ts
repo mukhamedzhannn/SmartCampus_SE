@@ -19,9 +19,17 @@ export interface Booking {
 
 export type Decision = 'available' | 'unavailable' | null;
 
+export type ReasonKey =
+  | 'invalid_interval'
+  | 'past_start'
+  | 'too_long'
+  | 'blocked'
+  | 'overlap';
+
 export interface CheckResult {
   decision: Decision;
   reasons: string[];
+  reasonKeys: ReasonKey[];
 }
 
 export type ReasonCode =
