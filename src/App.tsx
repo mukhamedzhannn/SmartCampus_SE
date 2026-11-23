@@ -183,7 +183,6 @@ export default function App() {
             <div className="lg:sticky lg:top-6">
               <AvailabilityForm
                 rooms={filteredRooms.length > 0 ? filteredRooms : rooms}
-                bookings={bookings}
                 selectedRoomId={selectedRoomId}
                 startTime={startTime}
                 endTime={endTime}

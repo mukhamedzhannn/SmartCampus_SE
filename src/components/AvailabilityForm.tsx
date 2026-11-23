@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock, AlertTriangle, RotateCcw, Sparkles, Loader2, Info } from 'lucide-react';
-import type { Room, Booking, CheckResult, ExplanationResponse } from '../types';
+import type { Room, CheckResult, ExplanationResponse } from '../types';
 import { timeToMinutes, minutesToTime } from '@/lib/time';
 import { MOCK_NOW_MIN } from '../data';
 import { getExplanation } from '@/lib/explanation';
@@ -8,7 +8,6 @@ import DecisionBadge from './DecisionBadge';
 
 export default function AvailabilityForm({
   rooms,
-  bookings,
   selectedRoomId,
   startTime,
   endTime,
@@ -18,7 +17,6 @@ export default function AvailabilityForm({
   onEndTimeChange,
 }: {
   rooms: Room[];
-  bookings: Booking[];
   selectedRoomId: string;
   startTime: string;
   endTime: string;

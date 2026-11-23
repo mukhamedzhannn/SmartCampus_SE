@@ -21,7 +21,7 @@ Strict rules:
 4. If the context is missing or the decision is "no_decision", say only that no decision is available yet.
 5. Never contradict the provided isAvailable flag or reasonCode. The deterministic checker is authoritative; your text must agree with it.`;
 
-interface StructuredContext {
+export interface StructuredContext {
   roomLabel: string;
   startLabel: string;
   endLabel: string;
@@ -59,7 +59,7 @@ function deriveReasonCode(req: ExplanationRequest): ReasonCode {
   return 'unknown';
 }
 
-function buildContext(req: ExplanationRequest): StructuredContext {
+export function buildContext(req: ExplanationRequest): StructuredContext {
   const boundsValid = Number.isFinite(req.start) && Number.isFinite(req.end);
   return {
     roomLabel: req.roomName,
@@ -76,8 +76,7 @@ function buildContext(req: ExplanationRequest): StructuredContext {
   };
 }
 
-function buildSystemPrompt(ctx: StructuredContext): string {
-  return `${SYSTEM_INSTRUCTION}
+export function buildSystemPrompt(ctx: StructuredContext): string {  return `${SYSTEM_INSTRUCTION}
 
 Structured context (use only these facts):
 - roomLabel: "${ctx.roomLabel}"
@@ -106,7 +105,7 @@ function buildSummary(ctx: StructuredContext): string {
 }
 
 function buildDetails(ctx: StructuredContext): string[] {
-  const { isAvailable, reasonCode, reasons, roomLabel } = ctx;
+  const { isAvailable, reasons, roomLabel } = ctx;
   if (isAvailable === true) {
     return [
       `${roomLabel} is Active and free during the requested interval.`,
@@ -178,8 +177,10 @@ function fallback(
   };
 }
 
-function mockModelCall(_systemPrompt: string, _ctx: StructuredContext): string {
-  const ctx = _ctx;
+function mockModelCall(systemPrompt: string, ctx: StructuredContext): string {
+  if (typeof systemPrompt !== 'string' || systemPrompt.trim().length === 0) {
+    return buildSummary(ctx);
+  }
   return buildSummary(ctx);
 }
 

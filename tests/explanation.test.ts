@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { getExplanation, SYSTEM_INSTRUCTION } from '../src/lib/explanation.ts';
+import { getExplanation, SYSTEM_INSTRUCTION, buildContext, buildSystemPrompt } from '../src/lib/explanation.ts';
 import { checkAvailability } from '../src/lib/availability.ts';
 import { rooms, bookings, MOCK_NOW_MIN } from '../src/data.ts';
 import type { ExplanationRequest } from '../src/types.ts';
@@ -190,5 +190,38 @@ describe('Explanation adapter: non-authoritative', () => {
     assert.equal(res.ok, true);
     assert.ok(res.summary.includes('unavailable'));
     assert.equal(r.result.decision, 'unavailable');
+  });
+});
+
+describe('Explanation adapter: prompt assembly', () => {
+  it('buildSystemPrompt embeds roomLabel, reasonCode, and serialized reasons into the prompt', () => {
+    const ctx = buildContext(req(ROOM_D, 780, 901));
+    const prompt = buildSystemPrompt(ctx);
+    assert.equal(typeof prompt, 'string');
+    assert.ok(prompt.length > 0);
+    assert.ok(prompt.includes('Delta Studio'));
+    assert.ok(prompt.includes('too_long'));
+    assert.ok(prompt.includes('120-minute'));
+    assert.ok(prompt.includes(SYSTEM_INSTRUCTION.slice(0, 40)));
+  });
+
+  it('buildSystemPrompt serializes the reasons array as JSON', () => {
+    const ctx = buildContext(req(ROOM_A, 630, 690));
+    const prompt = buildSystemPrompt(ctx);
+    assert.ok(prompt.includes('Intro to Algorithms'));
+    assert.ok(prompt.includes('overlap'));
+  });
+
+  it('buildSystemPrompt handles the null-decision context without throwing', () => {
+    const ctx = buildContext({
+      roomId: ROOM_D,
+      roomName: 'Delta Studio',
+      start: NaN,
+      end: NaN,
+      result: { decision: null, reasons: [], reasonKeys: [] },
+    });
+    const prompt = buildSystemPrompt(ctx);
+    assert.ok(prompt.includes('no_decision'));
+    assert.ok(prompt.includes('unknown'));
   });
 });
